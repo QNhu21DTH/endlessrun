@@ -1,0 +1,3 @@
+Main-Class: game.Main
+Class-Path: .
+
