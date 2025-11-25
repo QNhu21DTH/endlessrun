@@ -26,13 +26,14 @@ import java.util.Random;
 public class GamePanel extends JPanel implements ActionListener, KeyListener {
     public static final int WIDTH = 600, HEIGHT = 500;
     private final int GROUND_Y = 360;
-    
+    private Image logoImage;
+    private int logoW = 250;   
+    private int logoH = 90; 
     private Image bg;
     private Player player;
-    private java.util.List<Obstacle> obstacles;
-    private java.util.List<Coin> coins;
+    private ArrayList<Obstacle> obstacles = new ArrayList<>();
+    private ArrayList<Item> items = new ArrayList<>();
     private Timer timer;
-
     private int bgX = 0;
     private long startTime = 0L;
     private long pauseStart = 0L;
@@ -44,21 +45,33 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
     private int coinsCollected = 0;
     private int totalCoins = 0;
     private int lives = 3;
-    
+    private Audio audio = new Audio();
+    private boolean prevInMenu = false;
+    private boolean prevInGame = false;
+    private boolean prevPaused = false;
+    private boolean prevGameOver = false;
+
+    private int type;
+    public int getType() { return type; }
     private long lastObstacleSpawn = 0;
     private long lastCoinSpawn = 0;
     private final int obstacleInterval = 1800;
     private final int coinInterval = 1200;
 
     private Image heart, heart0, coinIcon;
-
-    private float obstacleSpeed = 4.0f; // tốc độ vật cản ban đầu
+    public static boolean DEBUG_HITBOX = true;
+    private boolean speedBoost = false;
+    private long speedBoostStart = 0;
+    private final int BOOST_DURATION = 5000;
+    private float baseSpeed = 4.5f;
+    private float savedSpeed = 0f;
     private long gameStartTime = System.currentTimeMillis();
     
     private boolean gameOver = false;
     private boolean paused = false;
     private int pauseOption = 0;
     private boolean inMenu = true;
+    private boolean inGame = false;
     private int menuOption = 0;
     private int gameOverOption = 0;
 
@@ -76,86 +89,122 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
         coinIcon = new ImageIcon("assets/coin1.png").getImage();
 
         obstacles = new ArrayList<>();
-        coins = new ArrayList<>();
+        items = new ArrayList<>();
         
         startTime = System.currentTimeMillis();
         score = 0;
-        if (timer == null) {  // đảm bảo không tạo nhiều Timer
-            timer = new javax.swing.Timer(16, this); // ~60 FPS
+        if (timer == null) {  
+            timer = new javax.swing.Timer(16, this); 
             timer.start();
         }     
+        try {
+            Image img = new ImageIcon("assets/logogame.png").getImage();
+            logoImage = img.getScaledInstance(logoW, logoH, Image.SCALE_SMOOTH);
+        } catch (Exception e) {
+            e.printStackTrace();
+            logoImage = null;
+        }
+        
     }
 
     @Override
     public void actionPerformed(ActionEvent e) {
+        updateAudioState(); 
         if (!inMenu && !paused && !gameOver) {
-            player.update();
-            
             long now = System.currentTimeMillis();
-            elapsedTime = (now - startTime) / 1000L; 
-            score = (int) (elapsedTime * 5);
-            long elapsed = (System.currentTimeMillis() - gameStartTime) / 1000; 
-            if (elapsed % 10 == 0 && obstacleSpeed < 12.0f) {
-                obstacleSpeed += 0.02f;
+            elapsedTime = (now - startTime) / 1000L;
+            score = (int)(elapsedTime * 5);
+            baseSpeed += 0.001f;     
+            if (baseSpeed > 12f) baseSpeed = 12f;
+            if (speedBoost) {
+                if (now - speedBoostStart >= 5000) {
+                    speedBoost = false;
+                    baseSpeed = savedSpeed;        
+                }
             }
-            Obstacle.speed = obstacleSpeed;
-            Coin.speed = obstacleSpeed;
-            // Background cuộn sang phải
-            bgX += 4;
+            Obstacle.speed = baseSpeed * 1.5f;
+            Item.speed = baseSpeed * 1.5f;
+            bgX += baseSpeed;
             if (bgX >= 1500) bgX = 0;
-            
-            // --- Spawn obstacle ngẫu nhiên ---
-            if (now - lastObstacleSpawn > 1500 + new Random().nextInt(2000)) { // 1.5–3.5s
+
+            player.update();
+
+            if (now - lastObstacleSpawn > 1500 + new Random().nextInt(2000)) {
                 lastObstacleSpawn = now;
 
-                // Giảm xác suất spawn (70%)
                 if (Math.random() < 0.7) {
                     Obstacle newObs = new Obstacle();
-
-                    // Kiểm tra trùng tọa độ coin gần đó (±60 px)
+                    // tránh spawn trùng item
                     boolean overlap = false;
-                    for (Coin c : coins) {
-                        if (Math.abs(c.getX() - newObs.getX()) < 60 &&
-                            Math.abs(c.getY() - newObs.getY()) < 60) {
-                                overlap = true;
-                                break;
+                    for (Item it : items) {
+                        if (Math.abs(newObs.getX() - it.getX()) < 60 &&
+                            Math.abs(newObs.getY() - it.getY()) < 60) {
+                            overlap = true;
+                            break;
                         }
                     }
-
                     if (!overlap) obstacles.add(newObs);
                 }
             }
-
-            // --- Spawn coin ngẫu nhiên ---
-            if (now - lastCoinSpawn > 1000 + new Random().nextInt(2000)) { // 1–3s
+            //Spawn item
+            if (now - lastCoinSpawn > 4000 + new Random().nextInt(3000)) {
                 lastCoinSpawn = now;
-                coins.add(new Coin());
+                double r = Math.random();
+                if (r < 0.85)  items.add(new Item(Item.COIN));
+                else if (r < 0.95) items.add(new Item(Item.ENERGY));
+                else items.add(new Item(Item.HEART));
             }
-
-            // --- Update obstacles ---
+            //Update obstacle 
             for (int i = obstacles.size() - 1; i >= 0; i--) {
                 Obstacle o = obstacles.get(i);
                 o.update();
-                if (o.isOffScreen()) obstacles.remove(i);
+
+                if (o.isOffScreen()) {
+                    obstacles.remove(i);
+                    continue;
+                }
 
                 if (!player.isInvincible() && o.getBounds().intersects(player.getBounds())) {
                     lives--;
                     player.setInvincible();
+                    audio.playHurt();
                     if (lives <= 0) {
                         gameOver = true;
+                        inGame = false;  
                         endGame();
                     }
                 }
             }
+            // update item
+            for (int i = items.size() - 1; i >= 0; i--) {
+                Item it = items.get(i);
+                it.update();
 
-            // --- Update coins ---
-            for (int i = coins.size() - 1; i >= 0; i--) {
-                Coin c = coins.get(i);
-                c.update();
-                if (c.isOffScreen()) coins.remove(i);
-                if (c.getBounds().intersects(player.getBounds())) {
-                    coinsCollected++;
-                    coins.remove(i);
+                if (it.isOffScreen()) {
+                    items.remove(i);
+                    continue;
+                }
+
+                if (it.getBounds().intersects(player.getBounds())) {
+                    switch (it.getType()) {
+                        case Item.COIN:
+                            coinsCollected++;
+                            break;
+
+                        case Item.ENERGY:
+                            if (!speedBoost) {
+                                speedBoost = true;
+                                speedBoostStart = now;
+                                savedSpeed = baseSpeed;
+                                baseSpeed += 2.0f; 
+                            }
+                            break;
+
+                        case Item.HEART:
+                            if (lives < 5) lives++;
+                            break;
+                    }
+                    items.remove(i);
                 }
             }
         }
@@ -163,10 +212,13 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
     }
     
     private void resetGame() {
+        audio.stopAll();
+        audio.playGame1(); 
+        inGame=true;
         player = new Player(450, 360);
         coinsCollected = 0;
         obstacles.clear();
-        coins.clear();
+        items.clear();
         lives = 3;
         startTime = System.currentTimeMillis();
         score = 0;
@@ -177,9 +229,12 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
         paused = false;
         
         bgX = 0;
+        baseSpeed = 4.5f;
         Obstacle.speed = 4.0f;
-        Coin.speed = 4.0f;
-        
+        Item.speed = 4.0f;
+        speedBoost = false;
+        speedBoostStart = 0;
+    
         if (timer != null && !timer.isRunning()) timer.start();
         requestFocusInWindow();
         repaint();
@@ -193,7 +248,7 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
 
         File file = new File("data.dat");
         if (!file.exists()) {
-            saveData(); // tạo file trống nếu chưa tồn tại
+            saveData();
             return;
         }
 
@@ -225,37 +280,65 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
         } catch (IOException e) {
             e.printStackTrace();
         }
-}
-
-private void updateHighScores(int newScore) {
-    // Nếu chưa có điểm nào -> thêm luôn
-    if (highScores.isEmpty()) {
-        highScores.add(newScore);
-    } 
-    // Nếu điểm mới cao hơn điểm cao nhất hiện tại
-    else if (newScore > highScores.get(0)) {
-        highScores.add(newScore);
-        highScores.sort(Collections.reverseOrder());
-
-        // Giữ tối đa 10 điểm cao nhất
-        if (highScores.size() > 10) {
-            highScores = new ArrayList<>(highScores.subList(0, 10));
-        }
     }
 
-    // Sau khi cập nhật, lưu lại vào file
-    saveData();
-}
+    private void updateHighScores(int newScore) {
+        if (highScores.isEmpty()) {
+            highScores.add(newScore);
+        }else if (newScore > highScores.get(0)) {
+            highScores.add(newScore);
+            highScores.sort(Collections.reverseOrder());
+            if (highScores.size() > 10) {
+                highScores = new ArrayList<>(highScores.subList(0, 10));
+            }
+        }
+        saveData();
+    }
     
     private void endGame() {
-    gameOver = true;
-    paused = false;
-
-    totalCoins += coinsCollected;
-    updateHighScores(score);
-    saveData();
+        gameOver = true;
+        paused = false;
+        totalCoins += coinsCollected;
+        updateHighScores(score);
+        saveData();
     }
     
+    public void updateAudioState() {
+        // ===== MENU =====
+        if (inMenu && !prevInMenu) {
+            audio.stopAll();
+            audio.playHome();  // nhạc menu
+        }
+
+//        // ===== IN GAME =====
+//        if (inGame && !prevInGame) {
+//            audio.stopAll();
+//            audio.playGame1();  
+//        }
+
+        // ===== PAUSED =====
+        if (paused && !prevPaused) {
+            audio.pauseGameplayMusic();
+        }
+
+        // Unpause -> bật lại gameplay music
+        if (!paused && prevPaused && !inMenu && !gameOver) {
+            audio.resumeGameplayMusic();
+        }
+
+        // ===== GAME OVER =====
+        if (gameOver && !prevGameOver) {
+            audio.stopGameplayMusic();
+            audio.playGameOver();
+            audio.playGameOver1();
+        }
+
+        // CẬP NHẬT TRẠNG THÁI
+        prevInMenu = inMenu;
+        prevInGame = inGame;
+        prevPaused = paused;
+        prevGameOver = gameOver;
+    }
 
     @Override
     protected void paintComponent(Graphics g) {
@@ -267,14 +350,41 @@ private void updateHighScores(int newScore) {
         if (bgX >= 1500) bgX = 0;
         // Vẽ player
         player.draw(g);
-
+        if (DEBUG_HITBOX) {
+            g.setColor(new Color(0, 255, 0, 80));
+            Rectangle r = player.getBounds();
+            g.fillRect(r.x, r.y, r.width, r.height);
+        }
         // Vẽ vật cản
         for (Obstacle o : obstacles) {
             o.draw(g);
+            if (DEBUG_HITBOX) {
+                g.setColor(new Color(255, 0, 0, 80));
+                Rectangle r = o.getBounds();
+                g.fillRect(r.x, r.y, r.width, r.height);
+                
+            }
         }
 
         // Vẽ coin
-        for (Coin c : coins) c.draw(g);
+        for (Item it : items) {
+            it.draw(g);
+            if (DEBUG_HITBOX) {
+                Rectangle r = it.getBounds();
+                switch (it.getType()) {
+                    case Item.COIN:
+                        g.setColor(new Color(255, 255, 0, 80));
+                        break;
+                    case Item.ENERGY:
+                        g.setColor(new Color(0, 200, 255, 80));
+                        break;
+                    case Item.HEART:
+                        g.setColor(new Color(255, 100, 150, 80));
+                        break;
+                }
+                g.fillRect(r.x, r.y, r.width, r.height);
+            }
+        }
         
         //Bộ đếm thời gian
         g.setFont(new Font("Arial", Font.BOLD, 22));
@@ -315,7 +425,7 @@ private void updateHighScores(int newScore) {
 
     private void drawUI(Graphics g) {
         int x = 10;
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < 5; i++) {
             g.drawImage(i < lives ? heart : heart0, x, 10, 30, 30, null);
             x += 35;
         }
@@ -328,17 +438,20 @@ private void updateHighScores(int newScore) {
         g.setColor(Color.BLACK);
         g.fillRect(0, 0, getWidth(), getHeight());
 
+        // ===== VẼ LOGO =====
+        if (logoImage != null) {
+            g.drawImage(logoImage,(getWidth() - logoW) / 2, 80, logoW, logoH,null);
+        }
+
+        // Font
         Font titleFont = new Font("Arial", Font.BOLD, 40);
         Font optionFont = new Font("Arial", Font.PLAIN, 32);
         Font selectedFont = new Font("Arial", Font.ITALIC, 34);
 
-        int centerY = getHeight() / 2 - 50;
+        int centerY = getHeight() / 2 - 20;  // Hạ xuống chút để tránh đụng logo
         int lineSpacing = 50;
 
-        // Tiêu đề
-        drawCenteredString(g, "ĐƯỜNG ĐẾN TRƯỜNG", centerY - 80, titleFont, Color.WHITE);
-
-        // Lựa chọn
+        // ===== MENU =====
         String[] options = {"Chơi ngay", "Điểm cao nhất", "Thoát"};
 
         for (int i = 0; i < options.length; i++) {
@@ -351,14 +464,20 @@ private void updateHighScores(int newScore) {
                 selected ? Color.YELLOW : Color.WHITE
             );
         }
+
+        // ===== HIGH SCORE POPUP =====
         if (menuOption == 1) {
             drawHighScores(g);
         }
+
+        // ===== ICON COIN & TỔNG COIN =====
         g.drawImage(coinIcon, getWidth() - 100, 30, 30, 30, null);
+
         g.setFont(new Font("Arial", Font.BOLD, 24));
         g.setColor(Color.YELLOW);
         g.drawString(String.valueOf(totalCoins), getWidth() - 60, 55);
     }
+
 
     
     private void drawPauseMenu(Graphics g) {
@@ -514,11 +633,11 @@ private void updateHighScores(int newScore) {
             switch (key) {
                 case KeyEvent.VK_UP:
                 case KeyEvent.VK_DOWN:
-                    pauseOption = 1 - pauseOption; // đảo lựa chọn
+                    pauseOption = 1 - pauseOption;
                     repaint();
                     break;
                 case KeyEvent.VK_SPACE:
-                    if (pauseOption == 0) { // Tiếp tục
+                    if (pauseOption == 0) {
                         paused = false;
                     } else { // Về trang chủ
                         paused = false;

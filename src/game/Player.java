@@ -15,11 +15,11 @@ public class Player {
     private boolean invincible = false;
     private long invincibleTimer = 0;
     private long slideTimer = 0;
-
+    private boolean jumpSoundPlayed = false;
     private Sprite runSprite, jumpSprite, slideSprite;
     private Sprite current;
     private int width = 100, height = 100;
-
+    Audio audio = new Audio();
     private float slideSpeed = 2.0f;
     private float jumpForwardSpeed = 2.0f;
     
@@ -44,7 +44,6 @@ public class Player {
         if (jumping) {
             y += dy;
             dy += 0.8f;
-
             if (y >= baseY) {
                 y = baseY;
                 jumping = false;
@@ -55,7 +54,6 @@ public class Player {
 
         // --- Trượt ---
         if (sliding) {
-
             if (System.currentTimeMillis() - slideTimer > 900) {
                 sliding = false;
                 height = 100;
@@ -77,6 +75,7 @@ public class Player {
     public void jump() {
         if (jumpCount < maxJump && !sliding) {
             jumping = true;
+            audio.playJump();
             dy = -15;
             current = jumpSprite;
             jumpCount++;
@@ -86,9 +85,11 @@ public class Player {
     public void slide() {
         if (!jumping && !sliding) {
             sliding = true;
+            audio.playSlide();
             height = 85;
             current = slideSprite;
             slideTimer = System.currentTimeMillis();
+            
         }
     }
 
