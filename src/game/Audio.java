@@ -81,7 +81,12 @@ public class Audio {
     }
     
     public void stopGameplayMusic() {
-        stop(game1Music);
+        if (game1Music != null && game1Music.isRunning()) {
+            stop(game1Music);
+        }
+        if (game2Music != null && game2Music.isRunning()) {
+            stop(game2Music);
+        }
     }
     
     public void stopAll() {

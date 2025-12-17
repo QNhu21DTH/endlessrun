@@ -1,7 +1,3 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package game;
 
 import javax.swing.*;
@@ -21,15 +17,16 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
+import javax.imageio.ImageIO;
 
 
 public class GamePanel extends JPanel implements ActionListener, KeyListener {
     public static final int WIDTH = 600, HEIGHT = 500;
     private final int GROUND_Y = 360;
-    private Image logoImage;
+    private Image logoImage,homeImage;
     private int logoW = 250;   
     private int logoH = 90; 
-    private Image bg;
+    private Image bg,bg1,bg2;
     private Player player;
     private ArrayList<Obstacle> obstacles = new ArrayList<>();
     private ArrayList<Item> items = new ArrayList<>();
@@ -58,9 +55,11 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
     private final int obstacleInterval = 1800;
     private final int coinInterval = 1200;
 
-    private Image heart, heart0, coinIcon;
+    private Image heart, heart0, coinIcon,magnetIcon,speedIcon;
     public static boolean DEBUG_HITBOX = true;
-    private boolean speedBoost = false;
+    private boolean magnetActive = false;
+    private long magnetStart = 0;
+    private boolean speedActive = false;
     private long speedBoostStart = 0;
     private final int BOOST_DURATION = 5000;
     private float baseSpeed = 4.5f;
@@ -74,6 +73,8 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
     private boolean inGame = false;
     private int menuOption = 0;
     private int gameOverOption = 0;
+    private int currentLevel;
+    private Font gameFont;
 
     public GamePanel() {
         setPreferredSize(new Dimension(WIDTH, HEIGHT));
@@ -83,14 +84,15 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
         SwingUtilities.invokeLater(() -> requestFocusInWindow());
         loadData();
         player = new Player(WIDTH - 200, GROUND_Y);
-        bg = new ImageIcon("assets/mainbg0.png").getImage();
+        bg1 = new ImageIcon("assets/mainbg0.png").getImage();
+        bg2 = new ImageIcon("assets/mainbg2.png").getImage();
+        bg = bg1;
         heart = new ImageIcon("assets/heart.png").getImage();
         heart0 = new ImageIcon("assets/heart0.png").getImage();
         coinIcon = new ImageIcon("assets/coin1.png").getImage();
+        magnetIcon = new ImageIcon("assets/magnet.png").getImage();
+        speedIcon = new ImageIcon("assets/energy.png").getImage();
 
-        obstacles = new ArrayList<>();
-        items = new ArrayList<>();
-        
         startTime = System.currentTimeMillis();
         score = 0;
         if (timer == null) {  
@@ -98,61 +100,123 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
             timer.start();
         }     
         try {
-            Image img = new ImageIcon("assets/logogame.png").getImage();
-            logoImage = img.getScaledInstance(logoW, logoH, Image.SCALE_SMOOTH);
+            logoImage = ImageIO.read(new File("assets/logogame.png"));
+            homeImage = ImageIO.read(new File("assets/homebg.jpg"));
         } catch (Exception e) {
             e.printStackTrace();
             logoImage = null;
+            homeImage = null;
         }
         
     }
+    
+    private void loadFonts() {
+        try {
+            gameFont = Font.createFont(
+                Font.TRUETYPE_FONT,
+                new File("assets/MTO Jamai.ttf")
+            ).deriveFont(Font.BOLD, 20f);
+        } catch (Exception e) {
+            e.printStackTrace();
+            gameFont = new Font("Arial", Font.BOLD, 22);
+        }
+    }
+    
+    private void switchLevel() {
+        currentLevel += 1;
+        bg = bg2;
+        baseSpeed += 2;
+        Obstacle.speed = baseSpeed * 1.7f;
+        Item.speed = baseSpeed * 1.7f;
+        lastObstacleSpawn = System.currentTimeMillis();
+        lastCoinSpawn = System.currentTimeMillis();
+        audio.stopGameplayMusic();
+        audio.playGame2();
+    }
 
+    
     @Override
     public void actionPerformed(ActionEvent e) {
+        loadFonts();
         updateAudioState(); 
         if (!inMenu && !paused && !gameOver) {
+            player.setLevel(currentLevel);
             long now = System.currentTimeMillis();
             elapsedTime = (now - startTime) / 1000L;
+            if (elapsedTime >= 300) {
+                switchLevel();
+            }
             score = (int)(elapsedTime * 5);
             baseSpeed += 0.001f;     
             if (baseSpeed > 12f) baseSpeed = 12f;
-            if (speedBoost) {
+            if (speedActive) {
                 if (now - speedBoostStart >= 5000) {
-                    speedBoost = false;
+                    speedActive = false;
                     baseSpeed = savedSpeed;        
                 }
             }
+            
             Obstacle.speed = baseSpeed * 1.5f;
             Item.speed = baseSpeed * 1.5f;
             bgX += baseSpeed;
             if (bgX >= 1500) bgX = 0;
 
             player.update();
-
-            if (now - lastObstacleSpawn > 1500 + new Random().nextInt(2000)) {
+            
+            // Spawn Obstacle
+            if (now - lastObstacleSpawn > 1500 + new Random().nextInt(2000)) { 
                 lastObstacleSpawn = now;
+                double r = Math.random();
+                switch (currentLevel) {
+                    case 1:
+                        //System.out.println("lv1 r= "+ r);
+                        if (r < 0.6) 
+                            obstacles.add(new Obstacle(Obstacle.CAUTION));
+                        else         
+                            obstacles.add(new Obstacle(Obstacle.BIRD));
+                        break;
 
-                if (Math.random() < 0.7) {
-                    Obstacle newObs = new Obstacle();
-                    // tránh spawn trùng item
-                    boolean overlap = false;
-                    for (Item it : items) {
-                        if (Math.abs(newObs.getX() - it.getX()) < 60 &&
-                            Math.abs(newObs.getY() - it.getY()) < 60) {
-                            overlap = true;
-                            break;
-                        }
-                    }
-                    if (!overlap) obstacles.add(newObs);
+                    case 2:
+                        System.out.println("lv2 r= "+ r);
+                        if (r < 0.30)
+                            obstacles.add(new Obstacle(Obstacle.BIRD));       
+//                        else if (r < 0.60)
+//                            obstacles.add(new Obstacle(Obstacle.CAUTION));      
+//                        else if (r < 0.75)
+//                            obstacles.add(new Obstacle(Obstacle.PUDDLE));         
+                        else if (r < 55)
+                            obstacles.add(new Obstacle(Obstacle.BOUGH));  
+                        else 
+                            obstacles.add(new Obstacle(Obstacle.isBIRD,player));
+                        break;
+                        
                 }
             }
+            
             //Spawn item
             if (now - lastCoinSpawn > 4000 + new Random().nextInt(3000)) {
                 lastCoinSpawn = now;
                 double r = Math.random();
-                if (r < 0.85)  items.add(new Item(Item.COIN));
-                else if (r < 0.95) items.add(new Item(Item.ENERGY));
-                else items.add(new Item(Item.HEART));
+                switch (currentLevel){
+                    case 1:
+                        if (r < 0.7)      
+                            items.add(new Item(Item.COIN));
+                        //else if (r < 0.8) 
+                            //items.add(new Item(Item.MAGNET));
+                        else              
+                            items.add(new Item(Item.ENERGY));
+                        break;
+                    case 2:
+                        if (r < 0.7)      
+//                            items.add(new Item(Item.COIN));
+//                        else if (r < 0.8) 
+                            items.add(new Item(Item.MAGNET));
+                        else if (r < 0.9) 
+                            items.add(new Item(Item.ENERGY));
+                        else              
+                            items.add(new Item(Item.HEART)); 
+                        break;
+                }
             }
             //Update obstacle 
             for (int i = obstacles.size() - 1; i >= 0; i--) {
@@ -165,6 +229,9 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
                 }
 
                 if (!player.isInvincible() && o.getBounds().intersects(player.getBounds())) {
+                    if (o.getType() == Obstacle.PUDDLE) {
+                        player.slide();     
+                    }
                     lives--;
                     player.setInvincible();
                     audio.playHurt();
@@ -177,9 +244,27 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
             }
             // update item
             for (int i = items.size() - 1; i >= 0; i--) {
-                Item it = items.get(i);
-                it.update();
-
+                Item it = items.get(i);   
+                if (!magnetActive){
+                    it.update();
+                }else{
+                    double dx = (player.getX()) - (it.getX());
+                    double dy = (player.getY()) - (it.getY());
+                    double dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < 300 && dist > 0.5) {
+                        double speed = Math.max(6.0, 20.0 - dist / 15); 
+                        double vx = dx / dist;
+                        double vy = dy / dist;
+                        double newX = it.getX() + vx * speed;
+                        double newY = it.getY() + vy * speed;
+                        it.setX((int) newX);
+                        it.setY((int) newY);
+                    }   
+                    if (now - magnetStart >= 15000) {
+                        magnetActive = false;  
+                    }
+                }
+                
                 if (it.isOffScreen()) {
                     items.remove(i);
                     continue;
@@ -187,22 +272,24 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
 
                 if (it.getBounds().intersects(player.getBounds())) {
                     switch (it.getType()) {
-                        case Item.COIN:
-                            coinsCollected++;
-                            break;
-
-                        case Item.ENERGY:
-                            if (!speedBoost) {
-                                speedBoost = true;
-                                speedBoostStart = now;
-                                savedSpeed = baseSpeed;
-                                baseSpeed += 2.0f; 
-                            }
-                            break;
-
                         case Item.HEART:
                             if (lives < 5) lives++;
                             break;
+                        case Item.COIN:
+                            coinsCollected++;
+                            break;
+                        case Item.ENERGY:
+                                if(!speedActive){
+                                    speedActive = true;
+                                    speedBoostStart = now;
+                                    savedSpeed = baseSpeed;
+                                    baseSpeed += 2.0f; 
+                                }else speedBoostStart = now; 
+                            break;
+                        case Item.MAGNET:
+                                magnetActive = true;
+                                magnetStart = now;                               
+                            break;    
                     }
                     items.remove(i);
                 }
@@ -212,6 +299,8 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
     }
     
     private void resetGame() {
+        currentLevel = 2;
+        bg = bg1;
         audio.stopAll();
         audio.playGame1(); 
         inGame=true;
@@ -232,8 +321,10 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
         baseSpeed = 4.5f;
         Obstacle.speed = 4.0f;
         Item.speed = 4.0f;
-        speedBoost = false;
+        speedActive = false;
         speedBoostStart = 0;
+        magnetActive = false;
+        magnetStart = 0;
     
         if (timer != null && !timer.isRunning()) timer.start();
         requestFocusInWindow();
@@ -348,46 +439,48 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
         g.drawImage(bg, bgX, 0, null);
         g.drawImage(bg, bgX - 1500, 0, null);
         if (bgX >= 1500) bgX = 0;
-        // Vẽ player
-        player.draw(g);
-        if (DEBUG_HITBOX) {
-            g.setColor(new Color(0, 255, 0, 80));
-            Rectangle r = player.getBounds();
-            g.fillRect(r.x, r.y, r.width, r.height);
-        }
+        
         // Vẽ vật cản
         for (Obstacle o : obstacles) {
             o.draw(g);
-            if (DEBUG_HITBOX) {
-                g.setColor(new Color(255, 0, 0, 80));
-                Rectangle r = o.getBounds();
-                g.fillRect(r.x, r.y, r.width, r.height);
-                
-            }
+//            if (DEBUG_HITBOX) {
+//                g.setColor(new Color(255, 0, 0, 80));
+//                Rectangle r = o.getBounds();
+//                g.fillRect(r.x, r.y, r.width, r.height);
+//                
+//            }
+
+        // Vẽ player
+        player.draw(g);
+//        if (DEBUG_HITBOX) {
+//            g.setColor(new Color(0, 255, 0, 80));
+//            Rectangle r = player.getBounds();
+//            g.fillRect(r.x, r.y, r.width, r.height);
+//        }
         }
 
         // Vẽ coin
         for (Item it : items) {
             it.draw(g);
-            if (DEBUG_HITBOX) {
-                Rectangle r = it.getBounds();
-                switch (it.getType()) {
-                    case Item.COIN:
-                        g.setColor(new Color(255, 255, 0, 80));
-                        break;
-                    case Item.ENERGY:
-                        g.setColor(new Color(0, 200, 255, 80));
-                        break;
-                    case Item.HEART:
-                        g.setColor(new Color(255, 100, 150, 80));
-                        break;
-                }
-                g.fillRect(r.x, r.y, r.width, r.height);
-            }
+//            if (DEBUG_HITBOX) {
+//                Rectangle r = it.getBounds();
+//                switch (it.getType()) {
+//                    case Item.COIN:
+//                        g.setColor(new Color(255, 255, 0, 80));
+//                        break;
+//                    case Item.ENERGY:
+//                        g.setColor(new Color(0, 200, 255, 80));
+//                        break;
+//                    case Item.HEART:
+//                        g.setColor(new Color(255, 100, 150, 80));
+//                        break;
+//                }
+//                g.fillRect(r.x, r.y, r.width, r.height);
+//            }
         }
         
         //Bộ đếm thời gian
-        g.setFont(new Font("Arial", Font.BOLD, 22));
+        g.setFont(gameFont);
         g.setColor(Color.WHITE);
         long minutes = elapsedTime / 60;
         long seconds = elapsedTime % 60;
@@ -424,29 +517,61 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
     }
 
     private void drawUI(Graphics g) {
-        int x = 10;
+        int x = 10; int x1 = 10;
         for (int i = 0; i < 5; i++) {
             g.drawImage(i < lives ? heart : heart0, x, 10, 30, 30, null);
             x += 35;
         }
         g.drawImage(coinIcon, 10, 50, 25, 25, null);
-        g.setFont(new Font("Arial", Font.BOLD, 20));
+        g.setFont(gameFont);
         g.drawString("x " + coinsCollected, 40, 70);
+        if (magnetActive) {
+            g.drawImage(magnetIcon, x1, 85, 25, 25, null);
+            x1+=35;
+            Graphics2D g2 = (Graphics2D) g.create();
+            Rectangle pr = player.getBounds();
+            int cx = pr.x + pr.width / 2;
+            int cy = pr.y + pr.height / 2;
+
+            int radius = 300;
+            int diameter = radius * 2;
+            int topLeftX = cx - radius;
+            int topLeftY = cy - radius;
+
+            // làm mờ
+            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.18f));
+            g2.setColor(new Color(255, 215, 0)); // vàng nhẹ (gold)
+            g2.fillOval(topLeftX, topLeftY, diameter, diameter);
+        
+            // vẽ viền hơi đậm hơn (không bị quá mờ)
+            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.6f));
+            g2.setStroke(new BasicStroke(2f));
+            g2.setColor(new Color(200, 150, 0));
+            g2.drawOval(topLeftX, topLeftY, diameter, diameter);
+
+            g2.dispose();
+        }
+        if (speedActive) g.drawImage(speedIcon, x1, 85, 25, 25, null);
     }
     
     private void drawMenu(Graphics g) {
-        g.setColor(Color.BLACK);
-        g.fillRect(0, 0, getWidth(), getHeight());
-
+        // ===== VẼ ảnh nền=====
+        if (homeImage != null) 
+            g.drawImage(homeImage, 0, 0, getWidth(), getHeight(), null);
+        
+        Graphics2D g2 = (Graphics2D) g;
+        g2.setColor(new Color(0, 0, 0, 100)); // 150 = độ mờ (0–255)
+        g2.fillRect(0, 0, getWidth(), getHeight());
+        
         // ===== VẼ LOGO =====
-        if (logoImage != null) {
+        if (logoImage != null) 
             g.drawImage(logoImage,(getWidth() - logoW) / 2, 80, logoW, logoH,null);
-        }
+        
 
         // Font
-        Font titleFont = new Font("Arial", Font.BOLD, 40);
-        Font optionFont = new Font("Arial", Font.PLAIN, 32);
-        Font selectedFont = new Font("Arial", Font.ITALIC, 34);
+        Font titleFont = gameFont.deriveFont(40f);
+        Font optionFont = gameFont.deriveFont(Font.PLAIN,32f);
+        Font selectedFont = gameFont.deriveFont(Font.ITALIC, 34f);
 
         int centerY = getHeight() / 2 - 20;  // Hạ xuống chút để tránh đụng logo
         int lineSpacing = 50;
@@ -473,7 +598,7 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
         // ===== ICON COIN & TỔNG COIN =====
         g.drawImage(coinIcon, getWidth() - 100, 30, 30, 30, null);
 
-        g.setFont(new Font("Arial", Font.BOLD, 24));
+        g.setFont(gameFont.deriveFont(Font.PLAIN,24f));
         g.setColor(Color.YELLOW);
         g.drawString(String.valueOf(totalCoins), getWidth() - 60, 55);
     }
@@ -484,9 +609,9 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
         g.setColor(new Color(0,0,0,150));
         g.fillRect(0,0,GamePanel.WIDTH,GamePanel.HEIGHT);
 
-        Font titleFont = new Font("Arial", Font.BOLD, 50);
-        Font optionFont = new Font("Arial", Font.PLAIN, 32);
-        Font selectedFont = new Font("Arial", Font.ITALIC, 34);
+        Font titleFont = gameFont.deriveFont(Font.BOLD, 50);
+        Font optionFont = gameFont.deriveFont(Font.PLAIN, 32);
+        Font selectedFont = gameFont.deriveFont(Font.ITALIC, 34);
 
         int centerY = getHeight() / 2 - 40;
         int lineSpacing = 50;
@@ -510,11 +635,11 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
         g.setColor(new Color(0,0,0,180));
         g.fillRect(0,0,GamePanel.WIDTH,GamePanel.HEIGHT);
 
-        Font titleFont = new Font("Arial", Font.BOLD, 50);
-        Font infoFont = new Font("Arial", Font.PLAIN, 24);
-        Font recordFont = new Font("Arial", Font.BOLD, 30);
-        Font optionFont = new Font("Arial", Font.PLAIN, 30);
-        Font selectedFont = new Font("Arial", Font.ITALIC, 32);
+        Font titleFont = gameFont.deriveFont( Font.BOLD, 50);
+        Font infoFont = gameFont.deriveFont( Font.PLAIN, 24);
+        Font recordFont = gameFont.deriveFont( Font.BOLD, 30);
+        Font optionFont = gameFont.deriveFont( Font.PLAIN, 30);
+        Font selectedFont = gameFont.deriveFont( Font.ITALIC, 32);
 
         int centerY = getHeight() / 2 - 40;
         int lineSpacing = 50;
@@ -542,13 +667,13 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
     }
     
     private void drawHighScores(Graphics g) {
-        g.setColor(Color.BLACK);
+        g.setColor(new Color(0, 150, 0));
         g.fillRect(0, 0, WIDTH, HEIGHT);
 
-        Font titleFont = new Font("Arial", Font.BOLD, 30);
-        Font scoreFont = new Font("Arial", Font.PLAIN, 28);
-        Font topScoreFont = new Font("Arial", Font.BOLD | Font.ITALIC, 30);
-        Font backFont = new Font("Arial", Font.PLAIN, 24);
+        Font titleFont = gameFont.deriveFont(30);
+        Font scoreFont = gameFont.deriveFont(Font.PLAIN, 20);
+        Font topScoreFont = gameFont.deriveFont(Font.ITALIC, 20);
+        Font backFont = gameFont.deriveFont(Font.PLAIN, 20);
 
         // Tiêu đề
         drawCenteredString(g, "BẢNG ĐIỂM CAO NHẤT", 120, titleFont, Color.WHITE);
@@ -576,9 +701,14 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
 
     private void drawCenteredString(Graphics g, String text, int y, Font font, Color color) {
         g.setFont(font);
-        g.setColor(color);
         FontMetrics fm = g.getFontMetrics();
         int x = (getWidth() - fm.stringWidth(text)) / 2;
+        g.setColor(new Color(0, 150, 0));
+        g.drawString(text, x - 2, y);
+        g.drawString(text, x + 2, y);
+        g.drawString(text, x, y - 2);
+        g.drawString(text, x, y + 2);
+        g.setColor(color);
         g.drawString(text, x, y);
     }
 

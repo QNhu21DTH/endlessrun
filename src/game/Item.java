@@ -1,7 +1,3 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package game;
 
 import java.awt.*;
@@ -9,10 +5,10 @@ import javax.swing.*;
 import java.util.Random;
 
 public class Item {
-
     public static final int COIN = 0;
     public static final int ENERGY = 1;
     public static final int HEART = 2;
+    public static final int MAGNET = 3;
 
     private int x, y, size = 30;
     public static float speed = 4.0f;
@@ -23,6 +19,8 @@ public class Item {
 
     public int getX() { return x; }
     public int getY() { return y; }
+    public void setX(int x) { this.x = x; }
+    public void setY(int x) { this.y = y; }
     public int getType() { return type; }
 
     public Item(int type) {
@@ -39,6 +37,9 @@ public class Item {
             case HEART:
                 sprite = new Sprite("assets/heart1.png", 1, 30, 30);
                 break;
+            case MAGNET:
+                sprite = new Sprite("assets/magnet.png", 1, 40, 40);
+                break;    
         }
         x = -30;
         y = (rand.nextBoolean() ? 300 : 200);
@@ -46,6 +47,7 @@ public class Item {
 
     public void update() {
         sprite.update();
+        
         x += speed;
     }
 

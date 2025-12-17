@@ -1,16 +1,13 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package game;
 
 import java.awt.*;
 import javax.swing.*;
 
 public class Player {
+    
     private int x, y;
     private int baseY;
-    private float dy = 0;
+    private int dy = 0;
     private boolean jumping = false, sliding = false;
     private boolean invincible = false;
     private long invincibleTimer = 0;
@@ -24,7 +21,7 @@ public class Player {
     private float jumpForwardSpeed = 2.0f;
     
     private int jumpCount = 0; 
-    private final int maxJump = 2;
+    private int maxJump=1;
     
     public Player(int x, int baseY) {
         this.x = x;
@@ -43,20 +40,20 @@ public class Player {
         // --- Nhảy ---
         if (jumping) {
             y += dy;
-            dy += 0.8f;
+            dy += 1f;
             if (y >= baseY) {
                 y = baseY;
                 jumping = false;
-                current = runSprite;
                 jumpCount = 0;
+                current = runSprite;
             }
+            
         }
 
         // --- Trượt ---
         if (sliding) {
             if (System.currentTimeMillis() - slideTimer > 900) {
                 sliding = false;
-                height = 100;
                 current = runSprite;
             }
         }
@@ -83,7 +80,7 @@ public class Player {
     }
 
     public void slide() {
-        if (!jumping && !sliding) {
+        if (!sliding) {
             sliding = true;
             audio.playSlide();
             height = 85;
@@ -109,15 +106,14 @@ public class Player {
             return new Rectangle(x+15, y - 85, width - 40, 80);
         }
     }
-
-    public void resetPosition(int startX) {
-        this.x = startX;
-        this.y = baseY;
-        this.current = runSprite;
-        this.jumping = false;
-        this.sliding = false;
-        this.invincible = false;
-    }
+    
+    public void setLevel(int level) {
+        if (level == 1) {
+            maxJump = 1;   
+        } else {
+            maxJump = 2;   
+        }
+}
 
     public int getX() { return x; }
     public int getY() { return y; }
