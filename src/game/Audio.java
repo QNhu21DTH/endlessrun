@@ -19,6 +19,13 @@ public class Audio {
     private Clip game1Music;
     private Clip game2Music;
     private Clip game3Music;
+    private boolean bgmOn = true;
+    private static final float VOLUME_SFX = 0f;
+    private static final float VOLUME_BGM = -30f;
+    private static final float VOLUME_HOME = -20f;
+    private static final float VOLUME_GAMEOVER = -20f;
+
+
     
     public Audio() {
         jumpClip = loadClip("assets/jump.wav",0);
@@ -66,15 +73,15 @@ public class Audio {
             }
     }
 
-    public void playJump()     { play(jumpClip); }
-    public void playSlide()    { play(slideClip); }
-    public void playHurt()     { play(hurtClip); }
-    public void playGameOver() { play(gameoverClip); }
-    public void playGameOver1() { playLoop(gameover1Clip); }
-    public void playHome() { playLoop(homeMusic); }
-    public void playGame1() { play(game1Music); }
-    public void playGame2() { play(game2Music); }
-    public void playGame3() { play(game3Music); }
+    public void playJump()     { if (!bgmOn) return; play(jumpClip); }
+    public void playSlide()    { if (!bgmOn) return; play(slideClip); }
+    public void playHurt()     { if (!bgmOn) return; play(hurtClip); }
+    public void playGameOver() { if (!bgmOn) return; if (!bgmOn) return; play(gameoverClip); }
+    public void playGameOver1() { if (!bgmOn) return; playLoop(gameover1Clip); }
+    public void playHome() { if (!bgmOn) return; playLoop(homeMusic); }
+    public void playGame1() { if (!bgmOn) return; play(game1Music); }
+    public void playGame2() { if (!bgmOn) return; play(game2Music); }
+    public void playGame3() { if (!bgmOn) return; play(game3Music); }
 
     public void stopHomeMusic() {
         stop(homeMusic);
@@ -117,16 +124,62 @@ public class Audio {
         if (clip.isRunning()) clip.stop();
     }
     public void pauseGameplayMusic() {
-        if (game1Music != null && game1Music.isRunning()) {
+        if (game1Music != null && game1Music.isRunning() || homeMusic != null && homeMusic.isRunning() || gameover1Clip != null && gameover1Clip.isRunning()) {
             game1Music.stop();
         }
     }
 
     public void resumeGameplayMusic() {
-        if (game1Music != null && !game1Music.isRunning()) {
+        if ((game1Music != null && !game1Music.isRunning()) || (homeMusic != null && homeMusic.isRunning()) || (gameover1Clip != null && gameover1Clip.isRunning())) {
             game1Music.start();
         }
     }
     
+    private void setVolume(Clip clip, float volume) {
+        if (clip == null) {
+            return;
+        }
+        FloatControl gain = (FloatControl) clip.getControl(FloatControl.Type.MASTER_GAIN);
+        gain.setValue(volume);
+    }
+    
+    private void muteAll() {
+        setVolume(homeMusic, -80f);
+        setVolume(game1Music, -80f);
+        setVolume(game2Music, -80f);
+        setVolume(game3Music, -80f);
+        setVolume(gameoverClip, -80f);
+        setVolume(gameover1Clip, -80f);
+        setVolume(jumpClip, -80f);
+        setVolume(slideClip, -80f);
+        setVolume(hurtClip, -80f);
+    }
+
+    private void restoreVolume() {
+        setVolume(homeMusic, VOLUME_HOME);
+        setVolume(game1Music, VOLUME_BGM);
+        setVolume(game2Music, VOLUME_BGM);
+        setVolume(game3Music, VOLUME_BGM);
+        setVolume(gameoverClip, VOLUME_GAMEOVER);
+        setVolume(gameover1Clip, VOLUME_GAMEOVER);
+        setVolume(jumpClip, VOLUME_SFX);
+        setVolume(slideClip, VOLUME_SFX);
+        setVolume(hurtClip, VOLUME_SFX);
+    }
+
+    
+    public void toggleBGM() {
+        bgmOn = !bgmOn;
+        if (!bgmOn) {
+            muteAll();
+        } else {
+            restoreVolume();
+//            resumeGameplayMusic();
+        }
+    }
+
+    public boolean isBgmOn() {
+        return bgmOn;
+    }
 }
 

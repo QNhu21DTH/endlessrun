@@ -48,8 +48,8 @@ public class Obstacle {
                 sprite = new Sprite("assets/bough.png", 1, 60, 30);
                 y = 50;
                 width=60; height=30;
-                double px = 450;
-                double py = 360;
+                double px = 470;
+                double py = 370;
 
                 double dx = px - x;
                 double dy = py - y;
@@ -70,81 +70,65 @@ public class Obstacle {
                 sprite = new Sprite("assets/bird.png", 2, 60, 30);
                 y = 280;
                 width=60; height=30;
+                initItBird();
                 break;    
             }
         x=-30;
     }
     
-    public Obstacle(int type, Player player) {
-        this.type = type;
-        this.player = player;
-    }
     
     private void initItBird() {
+        // Spawn ngoài màn hình (trên trái)
+        x = -20;
+        y = 200;
 
-        sprite = new Sprite("assets/bird.png", 2, 60, 30);
+        double px = 470;
+        double py = 350;
 
-        width = 60;
-        height = 30;
-
-        // Spawn bên ngoài màn hình (trên trái)
-        x = -80;
-        y = -60;
-
-        // Vị trí của player
-        double px = player.getX();
-        double py = player.getY() - 40;
-
-        // Vector từ itBird đến player
         double dx = px - x;
         double dy = py - y;
         double dist = Math.sqrt(dx * dx + dy * dy);
 
-        double speed = 7.0;
+        double speed = 15;
 
-        // Hướng bay đến player
         vx = (float) (dx / dist * speed);
         vy = (float) (dy / dist * speed);
 
-        phase = 0;  // bay đến player trước
+        phase = 0; // bay tới player
     }
+
 
     public void update() {
         sprite.update();
-        if (type == BOUGH) {
+        if (type == isBIRD) {
+
+            // Phase 0: bay đến player
+            if (phase == 0) {
+                x += vx;
+                y += vy;
+
+                float dx = 470 - x;
+                float dy = 350 - y;
+
+                float distance = (float) Math.sqrt(dx * dx + dy * dy);
+
+                // ⭐ Điều kiện ĐÚNG
+                if (distance < 12) {
+                    vx = 10.0f;   // bay sang phải
+                    vy = -8.0f;   // bay lên trên
+                    phase = 1;
+                }
+            } // Phase 1: bay chéo lên ngoài màn hình
+            else if (phase == 1) {
+                x += vx;
+                y += vy;
+            }
+
+            return;
+        }else if (type == BOUGH) {
             x += vx;
             y += vy;                    
         } else x += speed;
-        if (type == isBIRD) {
-
-        // Phase 0: bay đến player
-        if (phase == 0) {
-            x += vx;
-            y += vy;
-
-            double dx = player.getX() - x;
-            double dy = player.getY() - y;
-
-            // Khi gần player thì đổi hướng
-            if (Math.abs(dx) < 60 && Math.abs(dy) < 60) {
-
-                // Hướng bay lên phía trên-phải
-                vx = 8;   // đi sang phải
-                vy = -6;  // đi lên
-
-                phase = 1;
-            }
-        } 
-        
-        // Phase 1: bay lên góc phải
-        else if (phase == 1) {
-            x += vx;
-            y += vy;
-
-        }
-
-        return;
-    }
     }
 
     public void draw(Graphics g) {

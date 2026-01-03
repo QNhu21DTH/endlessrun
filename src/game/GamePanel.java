@@ -20,7 +20,7 @@ import java.util.Random;
 import javax.imageio.ImageIO;
 
 
-public class GamePanel extends JPanel implements ActionListener, KeyListener {
+public class GamePanel extends JPanel implements ActionListener, KeyListener, MouseMotionListener, MouseListener {
     public static final int WIDTH = 600, HEIGHT = 500;
     private final int GROUND_Y = 360;
     private Image logoImage,homeImage;
@@ -55,7 +55,7 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
     private final int obstacleInterval = 1800;
     private final int coinInterval = 1200;
 
-    private Image heart, heart0, coinIcon,magnetIcon,speedIcon;
+    private Image heart, heart0, coinIcon,magnetIcon,speedIcon, iconOn,iconOff;
     public static boolean DEBUG_HITBOX = true;
     private boolean magnetActive = false;
     private long magnetStart = 0;
@@ -83,6 +83,9 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
         addKeyListener(this);
         SwingUtilities.invokeLater(() -> requestFocusInWindow());
         loadData();
+        addMouseListener(this);
+        addMouseMotionListener(this);
+
         player = new Player(WIDTH - 200, GROUND_Y);
         bg1 = new ImageIcon("assets/mainbg0.png").getImage();
         bg2 = new ImageIcon("assets/mainbg2.png").getImage();
@@ -92,6 +95,8 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
         coinIcon = new ImageIcon("assets/coin1.png").getImage();
         magnetIcon = new ImageIcon("assets/magnet.png").getImage();
         speedIcon = new ImageIcon("assets/energy.png").getImage();
+        iconOn = new ImageIcon("assets/sound-on.png").getImage();
+        iconOff = new ImageIcon("assets/sound-off.png").getImage();
 
         startTime = System.currentTimeMillis();
         score = 0;
@@ -108,6 +113,20 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
             homeImage = null;
         }
         
+        addMouseListener(new MouseAdapter() {
+            @Override
+            public void mousePressed(MouseEvent e) {
+                int mx = e.getX();
+                int my = e.getY();
+
+                if (inMenu) {
+                    handleMenuClick(mx, my);
+                } else if (gameOver) {
+                    handleGameOverClick(mx, my);
+                }
+            }
+        });
+
     }
     
     private void loadFonts() {
@@ -169,7 +188,6 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
                 double r = Math.random();
                 switch (currentLevel) {
                     case 1:
-                        //System.out.println("lv1 r= "+ r);
                         if (r < 0.6) 
                             obstacles.add(new Obstacle(Obstacle.CAUTION));
                         else         
@@ -177,17 +195,14 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
                         break;
 
                     case 2:
-                        System.out.println("lv2 r= "+ r);
-                        if (r < 0.30)
-                            obstacles.add(new Obstacle(Obstacle.BIRD));       
-//                        else if (r < 0.60)
-//                            obstacles.add(new Obstacle(Obstacle.CAUTION));      
-//                        else if (r < 0.75)
-//                            obstacles.add(new Obstacle(Obstacle.PUDDLE));         
-                        else if (r < 55)
+                        if (r < 0.5)
+                            obstacles.add(new Obstacle(Obstacle.CAUTION));             
+                        else if (r < 0.75)
+                            obstacles.add(new Obstacle(Obstacle.PUDDLE));         
+                        else if (r < 0.85)
                             obstacles.add(new Obstacle(Obstacle.BOUGH));  
                         else 
-                            obstacles.add(new Obstacle(Obstacle.isBIRD,player));
+                            obstacles.add(new Obstacle(Obstacle.isBIRD));
                         break;
                         
                 }
@@ -245,20 +260,15 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
             // update item
             for (int i = items.size() - 1; i >= 0; i--) {
                 Item it = items.get(i);   
-                if (!magnetActive){
                     it.update();
-                }else{
+                if (magnetActive){
                     double dx = (player.getX()) - (it.getX());
                     double dy = (player.getY()) - (it.getY());
                     double dist = Math.sqrt(dx * dx + dy * dy);
                     if (dist < 300 && dist > 0.5) {
-                        double speed = Math.max(6.0, 20.0 - dist / 15); 
-                        double vx = dx / dist;
-                        double vy = dy / dist;
-                        double newX = it.getX() + vx * speed;
-                        double newY = it.getY() + vy * speed;
-                        it.setX((int) newX);
-                        it.setY((int) newY);
+                        double pullSpeed = Math.max(6.0, 20.0 - dist / 15);
+                        it.setX((int) (it.getX() + dx / dist * pullSpeed));
+                        it.setY((int) (it.getY() + dy / dist * pullSpeed));
                     }   
                     if (now - magnetStart >= 15000) {
                         magnetActive = false;  
@@ -512,6 +522,12 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
         }else if (showingHighScores) {
             drawHighScores(g);
             return;
+        }
+
+        if (audio.isBgmOn()) {
+            g.drawImage(iconOn, 550, 450, 40, 40, null);
+        } else {
+            g.drawImage(iconOff, 550, 450, 40, 40, null);
         }
 
     }
@@ -791,5 +807,145 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
 
     @Override public void keyReleased(KeyEvent e) {}
     @Override public void keyTyped(KeyEvent e) {}
+    
+    private void handleMenuClick(int mx, int my) {
+        int centerY = getHeight() / 2 - 20;
+        int lineSpacing = 50;
+
+        // 3 option
+        for (int i = 0; i < 3; i++) {
+            int textY = centerY + i * lineSpacing;
+            int textHeight = 40;
+
+            int textWidth = 250;
+            int textX = (getWidth() - textWidth) / 2;
+
+            if (mx >= textX && mx <= textX + textWidth
+                    && my >= textY - textHeight && my <= textY) {
+
+                menuOption = i; // highlight
+                repaint();
+
+                switch (i) {
+                    case 0: // Chơi ngay
+                        inMenu = false;
+                        resetGame();
+                        break;
+                    case 1: // Điểm cao nhất
+                        showingHighScores = true;
+                        inMenu = false;
+                        break;
+                    case 2: // Thoát
+                        System.exit(0);
+                        break;
+                }
+            }
+        }
+    }
+    
+    private void handleGameOverClick(int mx, int my) {
+        int centerY = getHeight() / 2 + 60;
+        int lineSpacing = 50;
+
+        // 2 option
+        for (int i = 0; i < 2; i++) {
+            int textY = centerY + i * lineSpacing;
+            int textHeight = 40;
+
+            int textWidth = 250;
+            int textX = (getWidth() - textWidth) / 2;
+
+            if (mx >= textX && mx <= textX + textWidth
+                    && my >= textY - textHeight && my <= textY) {
+
+                gameOverOption = i;
+                repaint();
+
+                if (i == 0) { // Chơi lại
+                    inMenu = false;
+                    gameOver = false;
+                    resetGame();
+                } else { // Về trang chủ
+                    gameOver = false;
+                    inMenu = true;
+                }
+            }
+        }
+    }
+    
+    @Override
+    public void mouseMoved(MouseEvent e) {
+        int mx = e.getX();
+        int my = e.getY();
+
+        if (inMenu) {
+            int centerY = getHeight() / 2 - 20;
+            int lineSpacing = 50;
+
+            for (int i = 0; i < 3; i++) {
+                int y = centerY + i * lineSpacing;
+                if (my >= y - 40 && my <= y) {
+                    menuOption = i;
+                    repaint();
+                }
+            }
+        }
+        
+        if (paused) {
+            int centerY = getHeight() / 2 - 40;
+            int lineSpacing = 50;
+
+            for (int i = 0; i < 2; i++) {
+                int y = centerY + i * lineSpacing;
+                if (my >= y - 40 && my <= y) {
+                    pauseOption = i;
+                    repaint();
+                }
+            }
+        }
+
+        if (gameOver) {
+            int centerY = getHeight() / 2 + 60;
+            int lineSpacing = 50;
+
+            for (int i = 0; i < 2; i++) {
+                int y = centerY + i * lineSpacing;
+                if (my >= y - 40 && my <= y) {
+                    gameOverOption = i;
+                    repaint();
+                }
+            }
+        }
+    }
+
+    @Override
+    public void mouseDragged(MouseEvent e) {}
+
+    @Override
+    public void mouseClicked(MouseEvent e) {
+        int mx = e.getX();
+        int my = e.getY();
+        int size = 40;
+        if (mx >= 550 && mx <= 550 + size && my >= 450 && my <= 450 + size) {
+            audio.toggleBGM(); // 🔊 BẬT / TẮT NHẠC 
+            repaint(); }
+    }
+
+    @Override
+    public void mousePressed(MouseEvent e) {
+    }
+
+    @Override
+    public void mouseReleased(MouseEvent e) {
+    }
+
+    @Override
+    public void mouseEntered(MouseEvent e) {
+    }
+
+    @Override
+    public void mouseExited(MouseEvent e) {
+    }
+
 }
 
