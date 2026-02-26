@@ -2,8 +2,10 @@ Hướng dẫn sử dụng game – Endless Run “Đường đến trường”
 
 1. Giới thiệu
    “Đường đến trường” là trò chơi dạng endless runner, nơi người chơi điều khiển nhân vật học sinh chạy trên đường đến trường, tránh chướng ngại vật và thu thập vật phẩm để đạt điểm cao. Trò chơi được phát triển bằng Java, dễ chơi, phù hợp với mọi lứa tuổi.
+   <img width="598" height="531" alt="image" src="https://github.com/user-attachments/assets/3953422c-b9c8-4452-95df-4aa81d456368" />
 
-2. Yêu cầu hệ thống
+
+3. Yêu cầu hệ thống
 
 - Hệ điều hành: Windows 7/10/11 hoặc tương thích với Java Runtime Environment (JRE)
 - Phần mềm: Java 8 trở lên
@@ -16,7 +18,7 @@ Hướng dẫn sử dụng game – Endless Run “Đường đến trường”
 
 - Tải hoặc copy rồi giải nén file game:File Game.rar
 - Chạy game:
-
+- 
 * Vào netbean
 * Mở project
 * Click chuột phải vào GamePanel.java
@@ -26,6 +28,8 @@ Hướng dẫn sử dụng game – Endless Run “Đường đến trường”
 
 * Có các tùy chọn: Chơi ngay, Điểm cao nhất, Thoát.
 * Hiện thị tổng số xu mà người chơi thu tập được từ trước đến giờ.
+  <img width="604" height="532" alt="image" src="https://github.com/user-attachments/assets/4c28edd9-8f56-4982-9017-b07581eae6f0" />
+
 
 4. Hướng dẫn điều khiển
 
