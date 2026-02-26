@@ -198,11 +198,11 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener, Mo
                         if (r < 0.5)
                             obstacles.add(new Obstacle(Obstacle.CAUTION));             
                         else if (r < 0.75)
-                            obstacles.add(new Obstacle(Obstacle.PUDDLE));         
+                            obstacles.add(new Obstacle(Obstacle.isBIRD));         
                         else if (r < 0.85)
                             obstacles.add(new Obstacle(Obstacle.BOUGH));  
                         else 
-                            obstacles.add(new Obstacle(Obstacle.isBIRD));
+                            obstacles.add(new Obstacle(Obstacle.PUDDLE));
                         break;
                         
                 }
@@ -223,8 +223,8 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener, Mo
                         break;
                     case 2:
                         if (r < 0.7)      
-//                            items.add(new Item(Item.COIN));
-//                        else if (r < 0.8) 
+                            items.add(new Item(Item.COIN));
+                        else if (r < 0.8) 
                             items.add(new Item(Item.MAGNET));
                         else if (r < 0.9) 
                             items.add(new Item(Item.ENERGY));
@@ -309,7 +309,7 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener, Mo
     }
     
     private void resetGame() {
-        currentLevel = 2;
+        currentLevel = 1;
         bg = bg1;
         audio.stopAll();
         audio.playGame1(); 
@@ -461,14 +461,14 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener, Mo
 //            }
 
         // Vẽ player
-        player.draw(g);
+        
 //        if (DEBUG_HITBOX) {
 //            g.setColor(new Color(0, 255, 0, 80));
 //            Rectangle r = player.getBounds();
 //            g.fillRect(r.x, r.y, r.width, r.height);
 //        }
         }
-
+        player.draw(g);
         // Vẽ coin
         for (Item it : items) {
             it.draw(g);
@@ -593,7 +593,7 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener, Mo
         int lineSpacing = 50;
 
         // ===== MENU =====
-        String[] options = {"Chơi ngay", "Điểm cao nhất", "Thoát"};
+        String[] options = {"Chơi ngay", "Điểm cao nhất","Hướng dẫn chơi" ,"Thoát"};
 
         for (int i = 0; i < options.length; i++) {
             boolean selected = (i == menuOption);
